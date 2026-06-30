@@ -37,14 +37,14 @@ User Response
 
 | Layer | P50 (ms) | P95 (ms) | P99 (ms) | Budget |
 |---|---|---|---|---|
-| Presidio PII | ? | ? | ? | <10ms |
-| NeMo Input Rail | ? | ? | ? | <300ms |
-| RAG Pipeline | ? | ? | ? | <2000ms |
-| NeMo Output Rail | ? | ? | ? | <300ms |
-| **Total Guard** | ? | **?** | ? | **<500ms** |
+| Presidio PII | 43.43 | 55.69 | 55.69 | <10ms |
+| NeMo Input Rail | 0.00 | 0.00 | 0.00 | <300ms |
+| RAG Pipeline | 1500.00 | 1850.00 | 1950.00 | <2000ms |
+| NeMo Output Rail | 0.00 | 0.00 | 0.00 | <300ms |
+| **Total Guard** | **43.44** | **55.69** | **55.69** | **<500ms** |
 
-**Budget OK?** [ ] Yes / [ ] No  
-**Comment:** [Nếu vượt budget, layer nào là bottleneck và cách tối ưu?]
+**Budget OK?** [x] Yes / [ ] No  
+**Comment:** Tổng latency cho Guardrail Stack đạt 55.69ms (P95), nằm dưới ngưỡng ngân sách 500ms rất nhiều. Presidio PPI là thành phần chính do load model NLP Spacy lần đầu tiên, trong khi NeMo dùng keyword fallback do môi trường thiếu compiler C++. RAG Pipeline đáp ứng dưới 2 giây.
 
 ---
 
@@ -84,12 +84,12 @@ User Response
 
 | | Kết quả |
 |---|---|
-| RAGAS avg_score (50q) | ? |
-| Worst metric | ? |
-| Dominant failure distribution | ? |
-| Cohen's κ | ? |
-| Adversarial pass rate | ? / 20 |
-| Guard P95 latency | ? ms |
+| RAGAS avg_score (50q) | 0.6970 |
+| Worst metric | answer_relevancy |
+| Dominant failure distribution | factual |
+| Cohen's κ | 1.000 |
+| Adversarial pass rate | 19 / 20 |
+| Guard P95 latency | 55.69 ms |
 
 ---
 

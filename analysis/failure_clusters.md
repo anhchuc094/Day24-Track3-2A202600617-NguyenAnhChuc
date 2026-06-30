@@ -7,36 +7,32 @@
 
 ## 1. Aggregate RAGAS Scores theo Distribution
 
-*(Bảng này được điền sau khi chạy `python src/phase_a_ragas.py` — xem `reports/ragas_50q.json`)*
-
 | Metric | factual | multi_hop | adversarial |
 |---|---|---|---|
-| faithfulness | ? | ? | ? |
-| answer_relevancy | ? | ? | ? |
-| context_precision | ? | ? | ? |
-| context_recall | ? | ? | ? |
-| **avg_score** | ? | ? | ? |
+| faithfulness | 0.9015 | 0.6171 | 0.7393 |
+| answer_relevancy | 0.7549 | 0.4708 | 0.4490 |
+| context_precision | 0.7690 | 0.6815 | 0.8117 |
+| context_recall | 0.9044 | 0.6362 | 0.4689 |
+| **avg_score** | **0.8325** | **0.6014** | **0.6172** |
 
-> **Nhận xét kỳ vọng:** Adversarial avg_score thường thấp hơn factual do pipeline khó xử lý các câu hỏi về version conflicts (v2023 vs v2024) và negation traps trong corpus HR policy.
+> **Nhận xét thực tế:** Adversarial avg_score (0.6172) thấp hơn đáng kể so với factual (0.8325) đúng như dự kiến. Điều này là do các negation traps và version conflicts gây nhầm lẫn lớn cho pipeline.
 
 ---
 
 ## 2. Bottom 10 Questions
 
-*(Xem chi tiết trong `reports/ragas_50q.json` → key `bottom_10`)*
-
 | Rank | Distribution | Question | avg_score | worst_metric |
 |---|---|---|---|---|
-| 1 | | | | |
-| 2 | | | | |
-| 3 | | | | |
-| 4 | | | | |
-| 5 | | | | |
-| 6 | | | | |
-| 7 | | | | |
-| 8 | | | | |
-| 9 | | | | |
-| 10 | | | | |
+| 1 | multi_hop | Nếu cần mua một chiếc laptop 30 triệu cho nhân viên mới... | 0.2857 | answer_relevancy |
+| 2 | multi_hop | Nhân viên Manager có thâm niên 12 năm: tổng phụ cấp... | 0.3238 | answer_relevancy |
+| 3 | adversarial | Nhân viên Manager có thể dùng VPN cá nhân (như NordVPN)... | 0.3694 | answer_relevancy |
+| 4 | multi_hop | Nhân viên tạm ứng 4 triệu và một nhân viên khác tạm ứng... | 0.4118 | answer_relevancy |
+| 5 | multi_hop | Nhân viên có thâm niên 7 năm theo v2024 được nghỉ... | 0.4158 | answer_relevancy |
+| 6 | multi_hop | Nhân viên tạm ứng 8 triệu, chưa thanh toán sau 30 ngày... | 0.4354 | answer_relevancy |
+| 7 | multi_hop | Nhân viên vừa kết hôn và cùng tuần đó có con kết hôn... | 0.4405 | answer_relevancy |
+| 8 | adversarial | Nhân viên thử việc có được hưởng bảo hiểm sức khỏe PVI... | 0.4692 | answer_relevancy |
+| 9 | adversarial | Bao lâu phải đổi mật khẩu một lần? | 0.4736 | context_recall |
+| 10 | factual | Muốn mua thiết bị trị giá 55 triệu cần ai phê duyệt? | 0.5474 | answer_relevancy |
 
 ---
 
@@ -46,21 +42,20 @@
 
 | worst_metric | factual | multi_hop | adversarial | Total |
 |---|---|---|---|---|
-| faithfulness | | | | |
-| answer_relevancy | | | | |
-| context_precision | | | | |
-| context_recall | | | | |
+| faithfulness | 0 | 1 | 0 | 1 |
+| answer_relevancy | 10 | 13 | 5 | 28 |
+| context_precision | 7 | 2 | 1 | 10 |
+| context_recall | 3 | 4 | 4 | 11 |
 
 ---
 
 ## 4. Dominant Failure Analysis
 
-**Dominant distribution:** multi_hop (dự kiến)  
-**Dominant metric:** context_recall (dự kiến)
+**Dominant distribution:** factual (theo số lượng failure tuyệt đối là 20 câu, tuy nhiên multi_hop và adversarial có average score thấp hơn rất nhiều).  
+**Dominant metric:** answer_relevancy
 
 **Lý do phân tích:**
-
-> Các câu hỏi `multi_hop` yêu cầu kết hợp thông tin từ nhiều tài liệu (cross-doc reasoning), nên pipeline hay bỏ sót chunks liên quan → context_recall thấp. Với corpus HR policy tiếng Việt có nhiều policy versions (v2023/v2024), chunking hierarchical có thể không đủ để giữ ngữ cảnh toàn document. Pipeline cần cải thiện BM25 hybrid search để bắt được các policy cross-reference. Adversarial distribution dùng negation traps và version conflicts mà LLM có xu hướng xử lý sai vì context không đủ rõ ràng về phiên bản áp dụng.
+> Metric answer_relevancy là điểm yếu chủ đạo của toàn bộ hệ thống (chiếm 28/50 trường hợp tệ nhất). Lý do chính là vì câu trả lời của mô hình sinh ra mặc dù chứa thông tin chính xác từ văn bản nhưng thường bị dài dòng hoặc lặp lại câu hỏi quá nhiều khiến tính relevancy bị phạt điểm nặng. Đối với HR policy tiếng Việt, việc dùng các từ ngữ đặc thù và các cấu trúc câu phức tạp dễ làm giảm điểm relevancy khi đánh giá bằng mô hình embedding của RAGAS.
 
 ---
 
@@ -77,4 +72,5 @@
 
 ## 6. Nhận xét về Adversarial Distribution
 
-> Bộ câu hỏi adversarial được thiết kế để bẫy pipeline bằng 3 loại khó khăn: (1) version conflicts giữa policy v2023 và v2024 — pipeline cần biết ưu tiên phiên bản mới nhất, (2) negation traps như "có nên tự xử lý không?" — LLM dễ bị confuse bởi phủ định trong tiếng Việt, (3) câu hỏi về VPN cá nhân và các policy ngoài phạm vi HR. Kỳ vọng adversarial avg_score < factual avg_score là hợp lý vì corpus không có index rõ ràng theo version. Nếu đạt bonus, đây là bằng chứng pipeline đã có khả năng phân biệt version conflicts tương đối tốt.
+> Bộ câu hỏi adversarial có avg_score (0.6172) thấp hơn factual (0.8325). Đặc biệt, câu hỏi về VPN cá nhân (Q50) và bảo hiểm sức khỏe cho nhân viên thử việc (Q48) rơi vào bottom 10 do model bị bẫy bởi các chính sách cũ v2023 hoặc các giả định sai. Điều này chứng minh pipeline RAG hiện tại cần một cơ chế lọc và sắp xếp mức độ ưu tiên của tài liệu theo thời gian (Metadata Filtering theo phiên bản mới nhất v2024).
+

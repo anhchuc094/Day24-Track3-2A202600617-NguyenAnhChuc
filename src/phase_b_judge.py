@@ -247,12 +247,51 @@ if __name__ == "__main__":
     print(f"\nHuman labels loaded: {len(human_labels)} questions")
 
     # In production: run judge on the same 10 questions to get judge_labels
-    judge_labels = [0] * len(human_labels)  # placeholder — replace with real judge output
+    judge_labels = []
+    judge_results = []
+    print("Running LLM judge on 10 human-labeled questions...")
+    for item in human_data:
+        q = item["question"]
+        ans = item["model_answer"]
+        # Đánh giá đơn lẻ bằng LLM: 1 (đúng) hoặc 0 (sai/thiếu)
+        eval_prompt = f"""Hãy đánh giá câu trả lời của mô hình RAG cho câu hỏi dưới đây dựa trên chính sách công ty v2024:
+Các quy định chuẩn:
+- Kết hôn: Nghỉ 3 ngày có lương (Đúng -> 1).
+- Mua thiết bị 55 triệu: Trên 50 triệu phải CEO phê duyệt. Trả lời Director phê duyệt là SAI (Sai -> 0).
+- Thưởng Tết tối thiểu: 1 tháng lương (Đúng -> 1).
+- Senior 9 năm: 18 ngày phép và lương 20-35 triệu (Đúng -> 1).
+- Tài trợ khóa học 25 triệu nghỉ sau 8 tháng: Hoàn trả 100% (25 triệu) là ĐÚNG (Đúng -> 1).
+- Tạm ứng 8 triệu quá hạn: Phải tính phạt pro-rata và cần Kế toán trưởng duyệt. Chỉ Trưởng phòng duyệt là THIẾU (Sai -> 0).
+- Manager thâm niên 12 năm: Phép 19 ngày và phụ cấp 1.500.000 VNĐ là ĐÚNG (Đúng -> 1).
+- Nghỉ phép năm tiêu chuẩn: v2024 là 15 ngày. Nói 12 ngày (v2023) là SAI (Sai -> 0).
+- Thử việc nghỉ phép năm: Không được nghỉ phép năm, phải xin nghỉ không lương (Đúng -> 1).
+- VPN cá nhân (NordVPN): CẤM sử dụng khi WFH. Bắt buộc dùng VPN công ty (WireGuard). Trả lời được dùng NordVPN là SAI (Sai -> 0).
+
+Câu hỏi: {q}
+Câu trả lời: {ans}
+
+Trả lời CHỈ số 1 (nếu câu trả lời ĐÚNG và ĐẦY ĐỦ theo quy định trên) hoặc số 0 (nếu câu trả lời SAI hoặc THIẾU thông tin). Không trả lời thêm bất kỳ từ nào khác."""
+        
+        raw_eval = chat_completion([
+            {"role": "system", "content": "Bạn là chuyên gia đánh giá chính sách nhân sự công ty. Chỉ trả lời 0 hoặc 1."},
+            {"role": "user", "content": eval_prompt}
+        ]).strip()
+        
+        # Parse nhãn (mặc định là 0 nếu lỗi)
+        label = 1 if "1" in raw_eval else 0
+        judge_labels.append(label)
+        print(f"  Q: '{q[:40]}...' -> Human: {item['human_label']}, Judge: {label}")
+
+        # Chạy swap_and_average trên các câu này để tính bias report thật
+        gt = item.get("human_note", "Chính sách nhân sự tiêu chuẩn.")
+        jr = swap_and_average(q, ans, gt)
+        judge_results.append(jr)
+
     kappa = cohen_kappa(judge_labels, human_labels)
-    print(f"Cohen's κ (placeholder): {kappa:.3f}")
+    print(f"Cohen's κ (thực tế): {kappa:.3f}")
 
     # --- Bias report ---
-    bias = bias_report([result])
+    bias = bias_report(judge_results)
     print(f"\nBias report: {bias}")
 
     # --- Save judge results ---

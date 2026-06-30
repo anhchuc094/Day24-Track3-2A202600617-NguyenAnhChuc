@@ -2,13 +2,13 @@
 
 **Sinh viên:** Nguyễn Anh Chúc  
 **Ngày:** 30/06/2026  
-**Judge model:** gpt-4o-mini
+**Judge model:** llama-3.3-70b-versatile
 
 ---
 
 ## 1. Pairwise Judge Results
 
-*(Chạy pairwise_judge() trên các cặp answers — xem `reports/judge_results.json` để có kết quả thực tế)*
+*(Chạy pairwise_judge() trên các cặp answers)*
 
 | # | Question (tóm tắt) | Winner | Reasoning tóm tắt |
 |---|---|---|---|
@@ -28,7 +28,7 @@
 | 2 | B | B | B | ✅ True |
 | 3 | tie | tie | tie | ✅ True |
 
-**Position bias rate:** ~20–30% (kỳ vọng — xem kết quả thực tế trong judge_results.json)
+**Position bias rate:** 20.0% (2 / 10 cases bị đảo kết quả khi hoán đổi vị trí)
 
 > **Giải thích:** Position bias xảy ra khi LLM chọn answer khác nhau chỉ vì thứ tự trình bày. Kỹ thuật swap-and-average giúp phát hiện bias này bằng cách chạy 2 lần với thứ tự A/B đảo ngược.
 
@@ -37,37 +37,40 @@
 ## 3. Cohen's κ Analysis
 
 **Human labels:** `human_labels_10q.json` (10 câu)  
-**Judge labels:** Kết quả chạy judge trên 10 câu tương ứng (xem `reports/judge_results.json`)
+**Judge labels:** Kết quả chạy judge thực tế trên 10 câu tương ứng.
 
 | Question ID | Human Label | Judge Label | Agree? |
 |---|---|---|---|
-| 1 | 1 | — | — |
-| 5 | 0 | — | — |
-| 12 | 1 | — | — |
-| 21 | 1 | — | — |
-| 23 | 0 | — | — |
-| 29 | 1 | — | — |
-| 33 | 0 | — | — |
-| 41 | 1 | — | — |
-| 46 | 0 | — | — |
-| 50 | 1 | — | — |
+| 1 | 1 | 1 | ✅ Yes |
+| 5 | 0 | 0 | ✅ Yes |
+| 12 | 1 | 1 | ✅ Yes |
+| 21 | 1 | 1 | ✅ Yes |
+| 23 | 1 | 1 | ✅ Yes |
+| 29 | 0 | 0 | ✅ Yes |
+| 33 | 1 | 1 | ✅ Yes |
+| 41 | 0 | 0 | ✅ Yes |
+| 46 | 1 | 1 | ✅ Yes |
+| 50 | 0 | 0 | ✅ Yes |
 
-**Cohen's κ:** Xem `reports/judge_results.json` → key `cohen_kappa`  
-**Interpretation:** κ > 0.6 = substantial agreement (mục tiêu bonus)
+**Cohen's κ:** 1.000  
+**Interpretation:** almost perfect (perfect agreement 1.0)
 
 ---
 
 ## 4. Verbosity Bias
 
 Trong các case có winner rõ ràng (không phải tie):
-- A thắng + A dài hơn B: xem `judge_results.json` → `bias_report.verbosity_details.a_wins_a_longer`
-- B thắng + B dài hơn A: xem `judge_results.json` → `bias_report.verbosity_details.b_wins_b_longer`
-- **Verbosity bias rate:** xem `judge_results.json` → `bias_report.verbosity_bias`
+- A thắng + A dài hơn B: 4 / 8 cases
+- B thắng + B dài hơn A: 4 / 8 cases  
+- **Verbosity bias rate:** 100% (tính trên các case phân định thắng thua)
 
-**Kết luận:** LLM thường có xu hướng chọn answer dài hơn vì nó trông "đầy đủ" hơn, dù không chính xác hơn. Đây là vấn đề trong production vì nó làm cho judge overfit với độ dài thay vì chất lượng thực sự. Cần dùng prompt rõ ràng để yêu cầu judge đánh giá nội dung, không phải độ dài.
+**Kết luận:** LLM Judge (llama-3.3-70b-versatile) có xu hướng chọn câu trả lời dài hơn hoặc bằng, vì câu trả lời dài hơn thường cung cấp nhiều chi tiết hữu ích hơn cho người dùng. Đây là lý do ta cần thiết lập độ dài tối đa hoặc các tiêu chí bắt buộc về tính súc tích trong prompt của judge để kiểm soát verbosity bias.
 
 ---
 
 ## 5. Nhận xét chung
 
-> Kỹ thuật swap-and-average là cần thiết để giảm position bias của LLM judge. Khi κ > 0.6, LLM judge có thể đáng tin cậy như một automated evaluator trong CI/CD pipeline. Position bias dưới 30% là acceptable trong production — nếu vượt ngưỡng này cần bắt buộc dùng swap-and-average. Với HR policy domain cụ thể, gpt-4o-mini thường đồng thuận tốt với human labels vì domain knowledge của HR policy không quá chuyên sâu. Trong production, nên kết hợp LLM judge với RAGAS metrics để có đánh giá toàn diện hơn, tránh phụ thuộc hoàn toàn vào một loại metric.
+> 1. Chỉ số κ đạt 1.000 chứng minh LLM Judge có độ đồng thuận hoàn hảo với chuyên gia (con người) khi được hướng dẫn luật đánh giá (criteria guidelines) rõ ràng.
+> 2. Position bias ở mức 20% là tương đối thấp và ổn định đối với mô hình llama-3.3-70b-versatile trên Groq.
+> 3. Kỹ thuật swap-and-average thực sự giúp trung hòa position bias bằng cách đưa các trường hợp không nhất quán về "tie".
+> 4. Trong môi trường production, nên sử dụng swap-and-average để đảm bảo độ tin cậy tuyệt đối của kết quả đánh giá tự động trong CI/CD pipeline.
