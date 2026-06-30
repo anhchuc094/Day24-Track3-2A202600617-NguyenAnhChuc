@@ -1,7 +1,7 @@
 # CI/CD Blueprint: RAG Eval + Guardrail Stack
 
-**Sinh viên:** [Họ Tên]  
-**Ngày:** [Ngày làm lab]
+**Sinh viên:** Nguyễn Anh Chúc  
+**Ngày:** 30/06/2026
 
 ---
 
@@ -95,5 +95,9 @@ User Response
 
 ## Nhận xét & Cải tiến
 
-> [Viết 3-5 câu về: điều gì hoạt động tốt, điều gì cần cải thiện,
->  nếu deploy production thực sự bạn sẽ thay đổi gì trong stack này?]
+> **Điều hoạt động tốt:** Presidio PII detection rất nhanh (< 10ms) nhờ regex engine, không cần LLM call. NeMo Guardrails với Colang flows linh hoạt, dễ mở rộng thêm patterns mới. Pipeline 2 tầng (Presidio → NeMo) cho phép chặn PII nhanh mà không tốn token.
+>
+> **Điều cần cải thiện:** NeMo Guardrails phụ thuộc LLM API call → latency cao (~200-500ms), làm tổng P95 vượt ngưỡng 500ms. Cần cache kết quả NeMo cho các pattern lặp lại. Colang pattern matching còn đơn giản (keyword-based), dễ bị bypass bằng paraphrase.
+>
+> **Nếu deploy production thực sự:** Thay thế NeMo LLM-based rail bằng classifier nhẹ (fine-tuned BERT) để giảm latency xuống < 50ms. Thêm rate limiting per-user để chặn brute force bypass. Implement logging + alerting cho mọi PII detection event để tuân thủ GDPR/nghị định 13/2023. Dùng Redis cache cho NeMo responses trên các queries giống nhau.
+
